@@ -612,6 +612,10 @@ static void
 free_block(uint32_t blockno)
 {
 	/* EXERCISE: Your code here */
+	void *bitmap;
+	bitmap = ospfs_block(OSPFS_FREEMAP_BLK);
+	bitvector_clear(bitmap, blockno);
+	return;
 }
 
 
