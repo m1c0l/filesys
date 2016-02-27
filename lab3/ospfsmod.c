@@ -733,6 +733,23 @@ add_block(ospfs_inode_t *oi)
 	uint32_t *allocated[2] = { 0, 0 };
 
 	/* EXERCISE: Your code here */
+	if (n == OSPFS_MAXFILEBLKS) {
+		return -ENOSPC;
+	}
+	if (n < OSPFS_NDIRECT) {
+		// direct block
+	}
+	else if (n == OSPFS_NDIRECT) {
+	}
+	else if (n < OSPFS_NDIRECT + OSPFS_NINDIRECT) {
+		// indirect block
+	}
+	else if (n == OSPFS_NDIRECT + OSPFS_NINDIRECT) {
+	}
+	else {
+		// indirect^2
+	}
+	oi->oi_size = (n + 1) * OSPFS_BLKSIZE;
 	return -EIO; // Replace this line
 }
 
@@ -766,7 +783,18 @@ remove_block(ospfs_inode_t *oi)
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	/* EXERCISE: Your code here */
-	return -EIO; // Replace this line
+	if (n > OSPFS_NDIRECT + OSPFS_NINDIRECT) {
+	       // indirect^2	
+	}
+	else if (n > OSPFS_NDIRECT) {
+		// indirect block
+	}
+	else {
+		// direct block
+		oi->oi_direct[n - 1] = 0;
+	}
+	oi->oi_size = (n - 1) * OSPFS_BLKSIZE;
+	//return -EIO; // Replace this line
 }
 
 
@@ -814,11 +842,11 @@ change_size(ospfs_inode_t *oi, uint32_t new_size)
 
 	while (ospfs_size2nblocks(oi->oi_size) < ospfs_size2nblocks(new_size)) {
 	        /* EXERCISE: Your code here */
-		return -EIO; // Replace this line
+		add_block(oi);		
 	}
 	while (ospfs_size2nblocks(oi->oi_size) > ospfs_size2nblocks(new_size)) {
 	        /* EXERCISE: Your code here */
-		return -EIO; // Replace this line
+		remove_block(oi);
 	}
 
 	/* EXERCISE: Make sure you update necessary file meta data
