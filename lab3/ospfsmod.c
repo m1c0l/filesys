@@ -872,12 +872,16 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 	// Make sure we don't read past the end of the file!
 	// Change 'count' so we never read past the end of the file.
 	/* EXERCISE: Your code here */
+	if (count > oi->oi_size - *f_pos) {
+		count = oi->oi_size - *f_pos;
+	}
 
 	// Copy the data to user block by block
 	while (amount < count && retval >= 0) {
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 		char *data;
+		uint32_t offset;
 
 		// ospfs_inode_blockno returns 0 on error
 		if (blockno == 0) {
@@ -892,8 +896,17 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 		// into user space.
 		// Use variable 'n' to track number of bytes moved.
 		/* EXERCISE: Your code here */
-		retval = -EIO; // Replace these lines
-		goto done;
+		offset = *f_pos % OSPFS_BLKSIZE; // exact position in the block
+		// n = amount of bytes to actually read from block
+		n = OSPFS_BLKSIZE - offset;
+		if (n < count - amount) {
+			n = count - amount;
+		}
+		retval = copy_to_user(buffer, &data[offset], n);
+		if (retval) {
+			retval = -EFAULT;
+			goto done;
+		}
 
 		buffer += n;
 		amount += n;
