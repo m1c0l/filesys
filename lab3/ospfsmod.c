@@ -904,7 +904,7 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 
 		// ospfs_inode_blockno returns 0 on error
 		if (blockno == 0) {
-			//eprintk("!!!I/O error\n");
+			eprintk("READ: I/O error\n");
 			retval = -EIO;
 			goto done;
 		}
@@ -968,19 +968,25 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	// Support files opened with the O_APPEND flag.  To detect O_APPEND,
 	// use struct file's f_flags field and the O_APPEND bit.
 	/* EXERCISE: Your code here */
+	if (filp->f_flags & O_APPEND)
+		*f_pos = oi->oi_size;
 
 	// If the user is writing past the end of the file, change the file's
 	// size to accomodate the request.  (Use change_size().)
 	/* EXERCISE: Your code here */
+	oi->oi_size += count; // currently does not check for changing size!!!
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
+		//eprintk("oi_size: %d\nf_pos: %d\n", oi->oi_size, *f_pos);
+		//eprintk("count: %d\namount: %d\n", count, amount);
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 		char *data;
 		uint32_t offset;
 
 		if (blockno == 0) {
+			//eprintk("WRITE: I/O error\n");
 			retval = -EIO;
 			goto done;
 		}
@@ -994,8 +1000,10 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		/* EXERCISE: Your code here */
 		offset = *f_pos % OSPFS_BLKSIZE;
 		n = OSPFS_BLKSIZE - offset;
-		if (n < count - amount) {
+		//eprintk("n: %d\n", n);
+		if (n >= count - amount) {
 			n = count - amount;
+			//eprintk("new n: %d\n", n);
 		}
 		retval = copy_from_user(&data[offset], buffer, n);
 		if (retval) {
@@ -1008,6 +1016,7 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	}
 
     done:
+	//eprintk("osprd_read: return %d\n", retval >= 0 ? amount : retval);
 	return (retval >= 0 ? amount : retval);
 }
 
