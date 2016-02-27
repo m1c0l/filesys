@@ -955,6 +955,7 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 		char *data;
+		uint32_t offset;
 
 		if (blockno == 0) {
 			retval = -EIO;
@@ -968,9 +969,16 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
 		/* EXERCISE: Your code here */
-		retval = -EIO; // Replace these lines
-		goto done;
-
+		offset = *f_pos % OSPFS_BLKSIZE;
+		n = OSPFS_BLKSIZE - offset;
+		if (n < count - amount) {
+			n = count - amount;
+		}
+		retval = copy_from_user(&data[offset], buffer, n);
+		if (retval) {
+			retval = -EFAULT;
+			goto done;
+		}
 		buffer += n;
 		amount += n;
 		*f_pos += n;
