@@ -891,6 +891,8 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 
 	// Copy the data to user block by block
 	while (amount < count && retval >= 0) {
+		//eprintk("oi_size: %d\nf_pos: %d\n", oi->oi_size, *f_pos);
+		//eprintk("count: %d\namount: %d\n", count, amount);
 		uint32_t blockno = ospfs_inode_blockno(oi, *f_pos);
 		uint32_t n;
 		char *data;
@@ -898,6 +900,7 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 
 		// ospfs_inode_blockno returns 0 on error
 		if (blockno == 0) {
+			//eprintk("!!!I/O error\n");
 			retval = -EIO;
 			goto done;
 		}
@@ -912,8 +915,10 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 		offset = *f_pos % OSPFS_BLKSIZE; // exact position in the block
 		// n = amount of bytes to actually read from block
 		n = OSPFS_BLKSIZE - offset;
-		if (n < count - amount) {
+		//eprintk("n: %d\n", n);
+		if (n >= count - amount) {
 			n = count - amount;
+			//eprintk("new n: %d\n", n);
 		}
 		retval = copy_to_user(buffer, &data[offset], n);
 		if (retval) {
@@ -927,6 +932,7 @@ ospfs_read(struct file *filp, char __user *buffer, size_t count, loff_t *f_pos)
 	}
 
     done:
+	//eprintk("osprd_read: return %d\n", retval >= 0 ? amount : retval);
 	return (retval >= 0 ? amount : retval);
 }
 
