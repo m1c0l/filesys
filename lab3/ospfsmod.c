@@ -1152,12 +1152,16 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	/* EXERCISE: Your code here */
 	if (filp->f_flags & O_APPEND) {
 		*f_pos = oi->oi_size;
-		oi->oi_size += count; // current_blockly does not check for changing size!!!
 	}
 
 	// If the user is writing past the end of the file, change the file's
 	// size to accomodate the request.  (Use change_size().)
 	/* EXERCISE: Your code here */
+	if (*f_pos + count > oi->oi_size) {
+		retval = change_size(oi, *f_pos + count);
+		if (retval < 0)
+			goto done;
+	}
 
 	// Copy data block by block
 	while (amount < count && retval >= 0) {
@@ -1181,14 +1185,15 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 		// read user space.
 		// Keep track of the number of bytes moved in 'n'.
 		/* EXERCISE: Your code here */
-		offset = *f_pos % OSPFS_BLKSIZE;
-		n = OSPFS_BLKSIZE - offset;
+
+		offset = *f_pos % OSPFS_BLKSIZE; // position in the block
+		n = OSPFS_BLKSIZE - offset; // bytes from offset to end of block
 		//eprintk("n: %d\n", n);
-		if (n >= count - amount) {
+		if (n > count - amount) { // rest of data fits in this block
 			n = count - amount;
 			//eprintk("new n: %d\n", n);
 		}
-		retval = copy_from_user(&data[offset], buffer, n);
+		retval = copy_from_user(data + offset, buffer, n);
 		if (retval) {
 			retval = -EFAULT;
 			goto done;
