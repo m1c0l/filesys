@@ -472,8 +472,8 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 * Make sure you ignore blank directory entries!  (Which have
 		 * an inode number of 0.)
 		 *
-		 * If the current_block entry is successfully read (the call to
-		 * filldir returns >= 0), or the current_block entry is skipped,
+		 * If the current entry is successfully read (the call to
+		 * filldir returns >= 0), or the current entry is skipped,
 		 * your function should advance f_pos by the proper amount to
 		 * advance to the next directory entry.
 		 */
@@ -735,7 +735,7 @@ direct_index(uint32_t b)
 static int
 add_block(ospfs_inode_t *oi)
 {
-	// current_block number of blocks in file
+	// current number of blocks in file
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	// keep track of allocations to free in case of -ENOSPC
@@ -849,7 +849,7 @@ add_block(ospfs_inode_t *oi)
 static int
 remove_block(ospfs_inode_t *oi)
 {
-	// current_block number of blocks in file
+	// current number of blocks in file
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	// index of last block in file
@@ -952,7 +952,7 @@ remove_block(ospfs_inode_t *oi)
 //            (However, if there is an -EIO error, do not worry too much about
 //	      restoring the file.)
 //
-//   If want_size has the same number of blocks as the current_block file, life
+//   If want_size has the same number of blocks as the current file, life
 //   is good -- the function is pretty easy.  But the function might have
 //   to add or remove blocks.
 //
@@ -1055,7 +1055,7 @@ ospfs_notify_change(struct dentry *dentry, struct iattr *attr)
 //
 //   This function copies the corresponding bytes from the file into the user
 //   space ptr (buffer).  Use copy_to_user() to accomplish this.
-//   The current_block file position is passed into the function
+//   The current file position is passed into the function
 //   as 'f_pos'; read data starting at that position, and update the position
 //   when you're done.
 //
