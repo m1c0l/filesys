@@ -695,7 +695,9 @@ static int32_t
 direct_index(uint32_t b)
 {
 	// Your code here.
-	return -1;
+	if (b < OSPFS_NDIRECT)
+		return b;
+	return (b - OSPFS_NDIRECT) % OSPFS_NINDIRECT;
 }
 
 
