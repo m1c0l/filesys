@@ -612,6 +612,11 @@ static void
 free_block(uint32_t blockno)
 {
 	/* EXERCISE: Your code here */
+	uint32_t last_ino_block = ospfs_super->os_firstinob
+				+ ospfs_super->os_ninodes / OSPFS_BLKINODES;
+	if (blockno <= last_ino_block || blockno > ospfs_super->os_nblocks)
+		return;
+
 	void *bitmap;
 	bitmap = ospfs_block(OSPFS_FREEMAP_BLK);
 	bitvector_set(bitmap, blockno);
