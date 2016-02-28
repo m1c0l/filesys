@@ -1436,19 +1436,13 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 
 	uint32_t ino_counter;
 	ospfs_inode_t *test_oi;
-	for (ino_counter = 0; ino_counter < ospfs_super->os_ninodes; ino_counter++) {
+	for (ino_counter = 2; ino_counter < ospfs_super->os_ninodes; ino_counter++) {
 		test_oi = ospfs_inode(ino_counter);
 		if (!test_oi->oi_nlink) {
 			entry_ino = ino_counter;
 			break;
 		}
 	}
-	/*while(test_oi = ospfs_inode(ino_counter++)) {
-		if (!test_oi->nlink) {
-			entry_ino = ino_counter;
-			break;
-		}
-	}*/
 	if (ino_counter == ospfs_super->os_ninodes) {
 		return -ENOSPC;
 	}
@@ -1513,7 +1507,40 @@ ospfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 	uint32_t entry_ino = 0;
 
 	/* EXERCISE: Your code here. */
-	return -EINVAL;
+	if (dentry->d_name.name > OSPFS_MAXNAMELEN || strlen(symname) > OSPFS_MAXSYMLINKLEN) {
+		return -ENAMETOOLONG;
+	}
+	if (find_direntry(dir_oi, dentry->d_name.name, dentry->d_name.len) != 0) {
+		return -EEXIST;
+	}
+	
+	ospfs_direntry_t *new_entry = create_blank_direntry(dir_oi);
+	if (IS_ERR(new_entry)) {
+		return PTR_ERR(new_entry);
+	}
+
+	uint32_t ino_counter;
+	ospfs_symlink_inode_t *test_oi;
+	for (ino_counter = 2; ino_counter < ospfs_super->os_ninodes; ino_counter++) {
+		test_oi = (ospfs_symlink_inode_t*)ospfs_inode(ino_counter);
+		if (!test_oi->oi_nlink) {
+			entry_ino = ino_counter;
+			break;
+		}
+	}
+	if (ino_counter == ospfs_super->os_ninodes) {
+		return -ENOSPC;
+	}
+
+	new_entry->od_ino = entry_ino;
+	memcpy(new_entry->od_name, dentry->d_name.name, dentry->d_name.len);
+	new_entry->od_name[dentry->d_name.len] = 0;
+
+	test_oi->oi_nlink = 1;
+	test_oi->oi_size = strlen(symname);
+	test_oi->oi_ftype = OSPFS_FTYPE_SYMLINK;
+	memcpy(test_oi->oi_symlink, symname, strlen(symname) + 1);
+
 
 	/* Execute this code after your function has successfully created the
 	   file.  Set entry_ino to the created file's inode number before
