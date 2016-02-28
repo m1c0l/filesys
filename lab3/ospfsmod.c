@@ -1125,6 +1125,19 @@ create_blank_direntry(ospfs_inode_t *dir_oi)
 	//    entries and return one of them.
 
 	/* EXERCISE: Your code here. */
+	uint32_t n = ospfs_size2nblocks(dir_oi->oi_size);
+	int i;
+	ospfs_direntry_t *dir_entries;
+	// search direct blocks
+	for (i = 0; i < n && i < OSPFS_NDIRECT; i++) {
+		dir_entries = (ospfs_direntry_t*) ospfs_block(dir_oi->oi_direct[i]);
+		int j, num_dir_entries = OSPFS_BLKSIZE / OSPFS_DIRENTRY_SIZE;
+		for (j = 0; j < num_dir_entries; j++) {
+			if (!dir_entries[j].od_ino) {
+				return &dir_entries[j];
+			}
+		}
+	}
 	return ERR_PTR(-EINVAL); // Replace this line
 }
 
