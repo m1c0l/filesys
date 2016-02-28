@@ -548,6 +548,9 @@ ospfs_unlink(struct inode *dirino, struct dentry *dentry)
 
 	od->od_ino = 0;
 	oi->oi_nlink--;
+	if (oi->oi_nlink <= 0 && oi->oi_ftype != OSPFS_FTYPE_SYMLINK) {
+		change_size(oi, 0);
+	}
 	return 0;
 }
 
@@ -1512,7 +1515,7 @@ ospfs_symlink(struct inode *dir, struct dentry *dentry, const char *symname)
 	uint32_t entry_ino = 0;
 
 	/* EXERCISE: Your code here. */
-	if (dentry->d_name.name > OSPFS_MAXNAMELEN || strlen(symname) > OSPFS_MAXSYMLINKLEN) {
+	if (dentry->d_name.len > OSPFS_MAXNAMELEN || strlen(symname) > OSPFS_MAXSYMLINKLEN) {
 		return -ENAMETOOLONG;
 	}
 	if (find_direntry(dir_oi, dentry->d_name.name, dentry->d_name.len) != 0) {
