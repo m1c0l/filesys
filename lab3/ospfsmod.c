@@ -1381,7 +1381,7 @@ ospfs_link(struct dentry *src_dentry, struct inode *dir, struct dentry *dst_dent
 		return PTR_ERR(od_direntry);
 	}
 	od_direntry->od_ino = src_dentry->d_inode->i_ino;
-	ospfs_inode_t *src_oi = ospfs_inode(src_dentry);
+	ospfs_inode_t *src_oi = ospfs_inode(src_dentry->d_inode->i_ino);
 	src_oi->oi_nlink++;
 	char *dest_name = od_direntry->od_name;
 	memcpy(dest_name, dst_dentry->d_name.name, dst_dentry->d_name.len);
