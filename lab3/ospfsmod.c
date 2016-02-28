@@ -738,28 +738,92 @@ add_block(ospfs_inode_t *oi)
 	// current number of blocks in file
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
-	// keep track of allocations to free in case of -ENOSPC
-	uint32_t *allocated[2] = { 0, 0 };
+	// next block
+	uint32_t b = n + 1;
 
-	/* EXERCISE: Your code here */
-	if (n == OSPFS_MAXFILEBLKS) {
+	// keep track of allocations to free in case of -ENOSPC
+	uint32_t direct = 0,
+		 indirect = 0,
+		 indirect2 = 0;
+
+	uint32_t *dir_ptr = 0,
+		 *indir_ptr = 0,
+		 *indir2_ptr = 0;
+
+	uint32_t dir_ind = direct_index(b),
+		 indir_ind = indir_index(b);
+
+	/* Allocate new blocks */
+
+	// if file is max size
+	if (b > OSPFS_MAXFILEBLKS) {
+		return -EIO;
+	}
+
+	// always need new direct
+	direct = allocate_block();
+	if (direct == 0) {
 		return -ENOSPC;
 	}
-	if (n < OSPFS_NDIRECT) {
-		// direct block
+	dir_ptr = (uint32_t*)ospfs_block(direct);
+	memset(dir_ptr, 0, OSPFS_BLKSIZE);
+
+	// need new indirect block
+	if (dir_ind == 0 && indir_ind != -1) {
+		indirect = allocate_block();
+		if (indirect == 0) {
+			free_block(direct);
+			return -ENOSPC;
+		}
+		indir_ptr = (uint32_t*)ospfs_block(indirect);
+		memset(indir_ptr, 0, OSPFS_BLKSIZE);
 	}
-	else if (n == OSPFS_NDIRECT) {
+
+	// need new indirect2 block
+	if (dir_ind == 0 && indir_ind == 1) {
+		indirect2 = allocate_block();
+		if (indirect2 == 0) {
+			free_block(direct);
+			free_block(indirect);
+			return -ENOSPC;
+		}
+		indir2_ptr = (uint32_t*)ospfs_block(indirect2);
+		memset(indir2_ptr, 0, OSPFS_BLKSIZE);
 	}
-	else if (n < OSPFS_NDIRECT + OSPFS_NINDIRECT) {
-		// indirect block
+
+	/* Assign new blocks' block numbers */
+
+	// fits in direct blocks
+	if (indir_ind == -1) {
+		oi->oi_direct[dir_ind] = direct;
 	}
-	else if (n == OSPFS_NDIRECT + OSPFS_NINDIRECT) {
+	// fits in indirect block
+	else if (indir_ind == 0) {
+		if (indirect) { // new indirect block added
+			oi->oi_indirect = indirect;
+		}
+		indir_ptr = (uint32_t*)ospfs_block(oi->oi_indirect);
+
+		indir_ptr[dir_ind] = direct;
 	}
+	// fits in indirect2 block
 	else {
-		// indirect^2
+		if (indirect2) { // new indirect2 block added
+			oi->oi_indirect2 = indirect2;
+		}
+		indir2_ptr = (uint32_t*)ospfs_block(oi->oi_indirect2);
+
+		if (indirect) { // new indirect block added
+			// indir_ind - 1 is zero-index offset in indirect2 block
+			indir2_ptr[indir_ind - 1] = indirect;
+		}
+		indir_ptr = (uint32_t*)ospfs_block(indir2_ptr[indir_ind - 1]);
+
+		indir_ptr[dir_ind] = direct;
 	}
-	oi->oi_size = (n + 1) * OSPFS_BLKSIZE;
-	return -EIO; // Replace this line
+
+	oi->oi_size = b * OSPFS_BLKSIZE;
+	return 0;
 }
 
 
