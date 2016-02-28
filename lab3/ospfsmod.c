@@ -472,8 +472,8 @@ ospfs_dir_readdir(struct file *filp, void *dirent, filldir_t filldir)
 		 * Make sure you ignore blank directory entries!  (Which have
 		 * an inode number of 0.)
 		 *
-		 * If the current entry is successfully read (the call to
-		 * filldir returns >= 0), or the current entry is skipped,
+		 * If the current_block entry is successfully read (the call to
+		 * filldir returns >= 0), or the current_block entry is skipped,
 		 * your function should advance f_pos by the proper amount to
 		 * advance to the next directory entry.
 		 */
@@ -735,7 +735,7 @@ direct_index(uint32_t b)
 static int
 add_block(ospfs_inode_t *oi)
 {
-	// current number of blocks in file
+	// current_block number of blocks in file
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	// next block
@@ -852,7 +852,7 @@ add_block(ospfs_inode_t *oi)
 static int
 remove_block(ospfs_inode_t *oi)
 {
-	// current number of blocks in file
+	// current_block number of blocks in file
 	uint32_t n = ospfs_size2nblocks(oi->oi_size);
 
 	/* EXERCISE: Your code here */
@@ -890,7 +890,7 @@ remove_block(ospfs_inode_t *oi)
 //            (However, if there is an -EIO error, do not worry too much about
 //	      restoring the file.)
 //
-//   If want_size has the same number of blocks as the current file, life
+//   If want_size has the same number of blocks as the current_block file, life
 //   is good -- the function is pretty easy.  But the function might have
 //   to add or remove blocks.
 //
@@ -974,7 +974,7 @@ ospfs_notify_change(struct dentry *dentry, struct iattr *attr)
 //
 //   This function copies the corresponding bytes from the file into the user
 //   space ptr (buffer).  Use copy_to_user() to accomplish this.
-//   The current file position is passed into the function
+//   The current_block file position is passed into the function
 //   as 'f_pos'; read data starting at that position, and update the position
 //   when you're done.
 //
@@ -1071,7 +1071,7 @@ ospfs_write(struct file *filp, const char __user *buffer, size_t count, loff_t *
 	/* EXERCISE: Your code here */
 	if (filp->f_flags & O_APPEND) {
 		*f_pos = oi->oi_size;
-		oi->oi_size += count; // currently does not check for changing size!!!
+		oi->oi_size += count; // current_blockly does not check for changing size!!!
 	}
 
 	// If the user is writing past the end of the file, change the file's
@@ -1191,19 +1191,58 @@ create_blank_direntry(ospfs_inode_t *dir_oi)
 
 	/* EXERCISE: Your code here. */
 	uint32_t n = ospfs_size2nblocks(dir_oi->oi_size);
-	int i;
+	int current_block, num_dir_entries = OSPFS_BLKSIZE / OSPFS_DIRENTRY_SIZE;
 	ospfs_direntry_t *dir_entries;
 	// search direct blocks
-	for (i = 0; i < n && i < OSPFS_NDIRECT; i++) {
-		dir_entries = (ospfs_direntry_t*) ospfs_block(dir_oi->oi_direct[i]);
-		int j, num_dir_entries = OSPFS_BLKSIZE / OSPFS_DIRENTRY_SIZE;
-		for (j = 0; j < num_dir_entries; j++) {
-			if (!dir_entries[j].od_ino) {
-				return &dir_entries[j];
+	for (current_block = 0; current_block < n && current_block < OSPFS_NDIRECT; current_block++) {
+		dir_entries = (ospfs_direntry_t*) ospfs_block(dir_oi->oi_direct[current_block]);
+		int i;
+		for (i = 0; i < num_dir_entries; i++) {
+			if (!dir_entries[i].od_ino) {
+				return &dir_entries[i];
 			}
 		}
 	}
-	return ERR_PTR(-EINVAL); // Replace this line
+	if (current_block < n) {
+		uint32_t *indirect_ptr = (uint32_t*)ospfs_block(dir_oi->oi_indirect);
+		int i;
+		for (i = 0; current_block < n && i < OSPFS_NINDIRECT; current_block++, i++) {
+			dir_entries = (ospfs_direntry_t*)ospfs_block(indirect_ptr[i]);
+			int j;
+			for (j = 0; j < num_dir_entries; j++) {
+				if (!dir_entries[j].od_ino) {
+					return &dir_entries[i];
+				}
+			}
+		}
+	}
+	// indirect2
+	if (current_block < n) {
+		uint32_t *indirect2_ptr = (uint32_t*)ospfs_block(dir_oi->oi_indirect2);
+		// loop through the indirect block pointers
+		int i;
+		for (i = 0; i < OSPFS_NINDIRECT; i++) {
+			uint32_t *indirect_ptr = (uint32_t*)ospfs_block(indirect2_ptr[i]);
+			// loop through the direct blocks
+			int j;
+			for (j = 0; current_block < n && j < OSPFS_NINDIRECT; current_block++, j++) {
+				dir_entries = (ospfs_direntry_t*)ospfs_block(indirect_ptr[j]);
+				// directory entries in the direct block
+				int k;
+				for (k = 0; k < num_dir_entries; k++) {
+					if (!dir_entries[k].od_ino) {
+						return &dir_entries[k];
+					}
+				}
+			}
+		}
+	}
+	// no empty directory, add a block
+	int add_block_ret = add_block(dir_oi);
+	if (add_block_ret < 0) {
+		return ERR_PTR(add_block_ret);
+	}
+	return (ospfs_direntry_t*)ospfs_inode_data(dir_oi, dir_oi->oi_size - OSPFS_BLKSIZE);
 }
 
 // ospfs_link(src_dentry, dir, dst_dentry
