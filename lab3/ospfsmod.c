@@ -1419,7 +1419,57 @@ ospfs_create(struct inode *dir, struct dentry *dentry, int mode, struct nameidat
 	ospfs_inode_t *dir_oi = ospfs_inode(dir->i_ino);
 	uint32_t entry_ino = 0;
 	/* EXERCISE: Your code here. */
-	return -EINVAL; // Replace this line
+	ospfs_inode_t *file_oi = NULL;
+	ospfs_direntry_t *new_entry = NULL;
+	uint32_t index_off;
+	if (dentry->d_name.len > OSPFS_MAXNAMELEN) {
+		return -ENAMETOOLONG;
+	}
+	if (find_direntry(dir_oi, dentry->d_name.name, dentry->d_name.len)) {
+		return -EEXIST;
+	}
+
+	new_entry = create_blank_direntry(dir_oi);
+	if (IS_ERR(new_entry)) {
+		return PTR_ERR(new_entry);
+	}
+
+	uint32_t ino_counter;
+	ospfs_inode_t *test_oi;
+	for (ino_counter = 0; ino_counter < ospfs_super->os_ninodes; ino_counter++) {
+		test_oi = ospfs_inode(ino_counter);
+		if (!test_oi->oi_nlink) {
+			entry_ino = ino_counter;
+			break;
+		}
+	}
+	/*while(test_oi = ospfs_inode(ino_counter++)) {
+		if (!test_oi->nlink) {
+			entry_ino = ino_counter;
+			break;
+		}
+	}*/
+	if (ino_counter == ospfs_super->os_ninodes) {
+		return -ENOSPC;
+	}
+
+	file_oi = ospfs_inode(entry_ino); // get ptr to inode
+	if (file_oi == NULL) {
+		return -EIO;
+	}
+	file_oi->oi_size = 0;
+	file_oi->oi_ftype = OSPFS_FTYPE_REG;
+	file_oi->oi_nlink = 1;
+	file_oi->oi_mode = mode;
+	for (index_off = 0; index_off < OSPFS_NDIRECT; index_off++) {
+		file_oi->oi_direct[index_off] = 0; // initialize to zero
+	}
+	file_oi->oi_indirect = 0;
+	file_oi->oi_indirect2 = 0;
+	new_entry->od_ino = entry_ino;
+
+	memcpy(new_entry->od_name, dentry->d_name.name, dentry->d_name.len);
+	new_entry->od_name[dentry->d_name.len] = '\0'; // null terminate
 
 	/* Execute this code after your function has successfully created the
 	   file.  Set entry_ino to the created file's inode number before
