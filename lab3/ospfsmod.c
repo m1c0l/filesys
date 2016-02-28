@@ -612,6 +612,11 @@ static void
 free_block(uint32_t blockno)
 {
 	/* EXERCISE: Your code here */
+	uint32_t last_ino_block = ospfs_super->os_firstinob
+				+ ospfs_super->os_ninodes / OSPFS_BLKINODES;
+	if (blockno <= last_ino_block || blockno > ospfs_super->os_nblocks)
+		return;
+
 	void *bitmap;
 	bitmap = ospfs_block(OSPFS_FREEMAP_BLK);
 	bitvector_set(bitmap, blockno);
@@ -1376,7 +1381,7 @@ ospfs_link(struct dentry *src_dentry, struct inode *dir, struct dentry *dst_dent
 		return PTR_ERR(od_direntry);
 	}
 	od_direntry->od_ino = src_dentry->d_inode->i_ino;
-	ospfs_inode_t *src_oi = ospfs_inode(src_dentry);
+	ospfs_inode_t *src_oi = ospfs_inode(src_dentry->d_inode->i_ino);
 	src_oi->oi_nlink++;
 	char *dest_name = od_direntry->od_name;
 	memcpy(dest_name, dst_dentry->d_name.name, dst_dentry->d_name.len);
