@@ -1371,6 +1371,16 @@ ospfs_link(struct dentry *src_dentry, struct inode *dir, struct dentry *dst_dent
 	if (find_direntry(dir_oi, dst_dentry->d_name.name, dst_dentry->d_name.len) != 0) {
 		return -EEXIST;
 	}
+	ospfs_direntry_t *od_direntry = create_blank_direntry(dir_oi);
+	if (IS_ERR(od_direntry)) {
+		return PTR_ERR(od_direntry);
+	}
+	od_direntry->od_ino = src_dentry->d_inode->i_ino;
+	ospfs_inode_t *src_oi = ospfs_inode(src_dentry);
+	src_oi->oi_nlink++;
+	char *dest_name = od_direntry->od_name;
+	memcpy(dest_name, dst_dentry->d_name.name, dst_dentry->d_name.len);
+	dest_name[dst_dentry->d_name.len] = 0;
 	return 0;
 }
 
